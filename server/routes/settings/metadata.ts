@@ -1,3 +1,4 @@
+import MdblistAPI from '@server/api/mdblist';
 import TheMovieDb from '@server/api/themoviedb';
 import Tvdb from '@server/api/tvdb';
 import {
@@ -96,9 +97,15 @@ metadataRoutes.put('/', async (req, res) => {
 metadataRoutes.post('/test', async (req, res) => {
   let tvdbTest = -1;
   let tmdbTest = -1;
+  let mdblistTest = -1;
 
   try {
-    const body = req.body as { tmdb: boolean; tvdb: boolean };
+    const body = req.body as {
+      tmdb: boolean;
+      tvdb: boolean;
+      mdblist?: boolean;
+      mdblistApiKey?: string;
+    };
 
     try {
       if (body.tmdb) {
@@ -128,7 +135,23 @@ metadataRoutes.post('/test', async (req, res) => {
       });
     }
 
-    const success = !(tvdbTest === 0 || tmdbTest === 0);
+    try {
+      if (body.mdblist) {
+        mdblistTest = 0;
+        const mdblist = new MdblistAPI(
+          body.mdblistApiKey?.trim() || getSettings().mdblist.apiKey
+        );
+        await mdblist.test();
+        mdblistTest = 1;
+      }
+    } catch (e) {
+      logger.error('Failed to test metadata provider', {
+        label: 'MetadataProvider',
+        message: e.message,
+      });
+    }
+
+    const success = !(tvdbTest === 0 || tmdbTest === 0 || mdblistTest === 0);
     const statusCode = success ? 200 : 500;
 
     return res.status(statusCode).json({
@@ -136,6 +159,7 @@ metadataRoutes.post('/test', async (req, res) => {
       tests: {
         tmdb: getTestResultString(tmdbTest),
         tvdb: getTestResultString(tvdbTest),
+        mdblist: getTestResultString(mdblistTest),
       },
     });
   } catch (e) {
@@ -144,6 +168,7 @@ metadataRoutes.post('/test', async (req, res) => {
       tests: {
         tmdb: getTestResultString(tmdbTest),
         tvdb: getTestResultString(tvdbTest),
+        mdblist: getTestResultString(mdblistTest),
       },
       error: e.message,
     });

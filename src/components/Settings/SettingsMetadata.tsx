@@ -10,7 +10,7 @@ import globalMessages from '@app/i18n/globalMessages';
 import defineMessages from '@app/utils/defineMessages';
 import { ArrowDownOnSquareIcon, BeakerIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
-import { Form, Formik } from 'formik';
+import { Field, Form, Formik } from 'formik';
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
@@ -34,6 +34,15 @@ const messages = defineMessages('components.Settings', {
     'TMDB provider does not work, please select another metadata provider',
   tvdbProviderDoesnotWork:
     'TVDB provider does not work, please select another metadata provider',
+  mdblistProviderDoesnotWork:
+    'MDBList provider does not work, please check the API key',
+  mdblistSettings: 'MDBList',
+  mdblistSettingsDescription:
+    'Configure the API key used by MDBList-backed Discover sliders.',
+  mdblistApiKey: 'MDBList API Key',
+  mdblistApiKeyTip:
+    'MDBList requires an API key even when the list itself is public.',
+  mdblistConfigured: 'An MDBList API key is already configured.',
   allChosenProvidersAreOperational:
     'All chosen metadata providers are operational',
   connectionTestFailed: 'Connection test failed',
@@ -46,6 +55,7 @@ type ProviderStatus = 'ok' | 'not tested' | 'failed';
 interface ProviderResponse {
   tvdb: ProviderStatus;
   tmdb: ProviderStatus;
+  mdblist: ProviderStatus;
 }
 
 interface MetadataValues {
@@ -57,6 +67,14 @@ interface MetadataSettings {
   metadata: MetadataValues;
 }
 
+interface MetadataFormValues extends MetadataSettings {
+  mdblistApiKey: string;
+}
+
+interface MdblistSettingsResponse {
+  hasApiKey: boolean;
+}
+
 const SettingsMetadata = () => {
   const intl = useIntl();
   const { addToast } = useToasts();
@@ -64,6 +82,7 @@ const SettingsMetadata = () => {
   const defaultStatus: ProviderResponse = {
     tmdb: 'not tested',
     tvdb: 'not tested',
+    mdblist: 'not tested',
   };
 
   const [providerStatus, setProviderStatus] =
@@ -85,20 +104,24 @@ const SettingsMetadata = () => {
       };
     }
   );
+  const { data: mdblistSettings, mutate: revalidateMdblist } =
+    useSWR<MdblistSettingsResponse>('/api/v1/settings/mdblist');
 
   const testConnection = async (
-    values: MetadataValues
+    values: MetadataFormValues
   ): Promise<ProviderResponse> => {
     const useTmdb =
-      values.tv === MetadataProviderType.TMDB ||
-      values.anime === MetadataProviderType.TMDB;
+      values.metadata.tv === MetadataProviderType.TMDB ||
+      values.metadata.anime === MetadataProviderType.TMDB;
     const useTvdb =
-      values.tv === MetadataProviderType.TVDB ||
-      values.anime === MetadataProviderType.TVDB;
+      values.metadata.tv === MetadataProviderType.TVDB ||
+      values.metadata.anime === MetadataProviderType.TVDB;
 
     const testData = {
       tmdb: useTmdb,
       tvdb: useTvdb,
+      mdblist: true,
+      mdblistApiKey: values.mdblistApiKey.trim() || undefined,
     };
 
     try {
@@ -110,6 +133,7 @@ const SettingsMetadata = () => {
       const newStatus: ProviderResponse = {
         tmdb: useTmdb ? response.data.tests.tmdb : 'not tested',
         tvdb: useTvdb ? response.data.tests.tvdb : 'not tested',
+        mdblist: response.data.tests.mdblist ?? 'not tested',
       };
 
       setProviderStatus(newStatus);
@@ -126,6 +150,7 @@ const SettingsMetadata = () => {
           const newStatus: ProviderResponse = {
             tmdb: useTmdb ? errorData.tests.tmdb : 'not tested',
             tvdb: useTvdb ? errorData.tests.tvdb : 'not tested',
+            mdblist: errorData.tests.mdblist ?? 'not tested',
           };
 
           setProviderStatus(newStatus);
@@ -149,6 +174,7 @@ const SettingsMetadata = () => {
         tests?: {
           tvdb: ProviderStatus;
           tmdb: ProviderStatus;
+          mdblist?: ProviderStatus;
         };
       }>('/api/v1/settings/metadatas', {
         tv: values.tv,
@@ -166,6 +192,9 @@ const SettingsMetadata = () => {
         setProviderStatus({
           tmdb: mapStatusValue(response.data.tests.tmdb),
           tvdb: mapStatusValue(response.data.tests.tvdb),
+          mdblist: response.data.tests.mdblist
+            ? mapStatusValue(response.data.tests.mdblist)
+            : providerStatus.mdblist,
         });
       }
 
@@ -184,6 +213,7 @@ const SettingsMetadata = () => {
           tests?: {
             tvdb: string;
             tmdb: string;
+            mdblist?: string;
           };
         };
 
@@ -199,6 +229,9 @@ const SettingsMetadata = () => {
           setProviderStatus({
             tmdb: mapStatusValue(errorData.tests.tmdb),
             tvdb: mapStatusValue(errorData.tests.tvdb),
+            mdblist: errorData.tests.mdblist
+              ? mapStatusValue(errorData.tests.mdblist)
+              : providerStatus.mdblist,
           });
         }
       }
@@ -304,15 +337,33 @@ const SettingsMetadata = () => {
               </Badge>
             </span>
           </div>
+          <div className="flex items-center">
+            <span className="mr-2 w-24">MDBList:</span>
+            <span
+              className={`text-sm ${getStatusClass(providerStatus.mdblist)}`}
+              data-testid="mdblist-status"
+            >
+              <Badge badgeType={getBadgeType(providerStatus.mdblist)}>
+                {getStatusMessage(providerStatus.mdblist)}
+              </Badge>
+            </span>
+          </div>
         </div>
       </div>
 
       <div className="section">
         <Formik
-          initialValues={{ metadata: initialValues }}
+          initialValues={{ metadata: initialValues, mdblistApiKey: '' }}
           onSubmit={async (values) => {
             try {
               const result = await saveSettings(values.metadata);
+
+              if (values.mdblistApiKey.trim()) {
+                await axios.post('/api/v1/settings/mdblist', {
+                  apiKey: values.mdblistApiKey.trim(),
+                });
+                await revalidateMdblist();
+              }
 
               if (data) {
                 data.metadata = result.metadata;
@@ -385,6 +436,37 @@ const SettingsMetadata = () => {
                   </div>
                 </div>
 
+                <div className="mb-6 mt-8">
+                  <h2 className="heading">
+                    {intl.formatMessage(messages.mdblistSettings)}
+                  </h2>
+                  <p className="description">
+                    {intl.formatMessage(messages.mdblistSettingsDescription)}
+                  </p>
+                </div>
+
+                <div className="form-row">
+                  <label htmlFor="mdblistApiKey" className="text-label">
+                    {intl.formatMessage(messages.mdblistApiKey)}
+                    <span className="label-tip">
+                      {intl.formatMessage(messages.mdblistApiKeyTip)}
+                    </span>
+                  </label>
+                  <div className="form-input-area">
+                    <Field
+                      id="mdblistApiKey"
+                      name="mdblistApiKey"
+                      type="password"
+                      placeholder={
+                        mdblistSettings?.hasApiKey
+                          ? intl.formatMessage(messages.mdblistConfigured)
+                          : undefined
+                      }
+                      autoComplete="new-password"
+                    />
+                  </div>
+                </div>
+
                 <div className="actions">
                   <div className="flex justify-end">
                     <span className="ml-3 inline-flex rounded-md shadow-sm">
@@ -395,9 +477,19 @@ const SettingsMetadata = () => {
                         onClick={async () => {
                           setIsTesting(true);
                           try {
-                            const resp = await testConnection(values.metadata);
+                            const resp = await testConnection(values);
 
-                            if (resp.tvdb === 'failed') {
+                            if (resp.mdblist === 'failed') {
+                              addToast(
+                                intl.formatMessage(
+                                  messages.mdblistProviderDoesnotWork
+                                ),
+                                {
+                                  appearance: 'error',
+                                  autoDismiss: true,
+                                }
+                              );
+                            } else if (resp.tvdb === 'failed') {
                               addToast(
                                 intl.formatMessage(
                                   messages.tvdbProviderDoesnotWork

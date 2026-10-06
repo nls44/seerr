@@ -8,6 +8,7 @@ const MDBLIST_HOSTS = new Set(['mdblist.com', 'www.mdblist.com']);
 const LIST_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 export interface MdblistListItem {
+  id?: number | string;
   ids?: { tmdb?: number | string };
   tmdb?: number | string;
   tmdb_id?: number | string;
@@ -16,11 +17,24 @@ export interface MdblistListItem {
   mediaType?: string;
   mediatype?: string;
   type?: string;
+  movies?: unknown[];
+  shows?: unknown[];
+  pagination?: {
+    total?: number;
+    total_results?: number;
+    totalResults?: number;
+    total_items?: number;
+    count?: number;
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
 }
 
 export interface MdblistListResponse {
   items?: unknown[];
+  movies?: unknown[];
+  shows?: unknown[];
+  pagination?: MdblistListItem['pagination'];
   total?: number;
   total_results?: number;
   totalResults?: number;
@@ -114,7 +128,10 @@ const parseMediaType = (value: unknown): MediaType | undefined => {
   }
 };
 
-export const parseMdblistItems = (items: unknown[]): MdblistItemReference[] => {
+export const parseMdblistItems = (
+  items: unknown[],
+  defaultMediaType?: MediaType
+): MdblistItemReference[] => {
   const references: MdblistItemReference[] = [];
   const seen = new Set<string>();
 
@@ -125,11 +142,12 @@ export const parseMdblistItems = (items: unknown[]): MdblistItemReference[] => {
 
     const item = value as MdblistListItem;
     const tmdbId = parseTmdbId(
-      item.ids?.tmdb ?? item.tmdb ?? item.tmdb_id ?? item.tmdbid
+      item.ids?.tmdb ?? item.tmdb ?? item.tmdb_id ?? item.tmdbid ?? item.id
     );
-    const mediaType = parseMediaType(
-      item.media_type ?? item.mediaType ?? item.mediatype ?? item.type
-    );
+    const mediaType =
+      parseMediaType(
+        item.media_type ?? item.mediaType ?? item.mediatype ?? item.type
+      ) ?? defaultMediaType;
 
     if (!tmdbId || !mediaType) {
       continue;
@@ -163,11 +181,50 @@ const getTotalResults = (data: MdblistListResponse): number | undefined => {
     data.total_results ??
     data.totalResults ??
     data.item_count ??
-    data.count;
+    data.count ??
+    data.pagination?.total ??
+    data.pagination?.total_results ??
+    data.pagination?.totalResults ??
+    data.pagination?.total_items ??
+    data.pagination?.count;
 
   return typeof total === 'number' && Number.isFinite(total) && total >= 0
     ? total
     : undefined;
+};
+
+const getResponseItems = (data: MdblistResponse): unknown[] => {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data.items)) {
+    return data.items;
+  }
+
+  const addDefaultMediaType = (items: unknown[], mediaType: MediaType) =>
+    items.map((item) => ({
+      ...(item && typeof item === 'object' ? item : {}),
+      mediatype:
+        item && typeof item === 'object'
+          ? ((item as MdblistListItem).mediatype ??
+            (item as MdblistListItem).media_type ??
+            (item as MdblistListItem).mediaType ??
+            (item as MdblistListItem).type ??
+            mediaType)
+          : mediaType,
+    }));
+
+  return [
+    ...addDefaultMediaType(
+      Array.isArray(data.movies) ? data.movies : [],
+      MediaType.MOVIE
+    ),
+    ...addDefaultMediaType(
+      Array.isArray(data.shows) ? data.shows : [],
+      MediaType.TV
+    ),
+  ];
 };
 
 class MdblistAPI extends ExternalAPI {
@@ -208,39 +265,51 @@ class MdblistAPI extends ExternalAPI {
     try {
       const data = await this.get<MdblistResponse>(
         `/lists/${encodedListId}/items`,
-        { params: { limit, offset } },
+        { params: { limit, offset, unified: true } },
         900
       );
-      const rawItems = Array.isArray(data)
-        ? data
-        : Array.isArray(data.items)
-          ? data.items
-          : [];
+      const rawItems = getResponseItems(data);
 
       return {
         items: parseMdblistItems(rawItems),
         totalResults: Array.isArray(data) ? undefined : getTotalResults(data),
       };
     } catch (error) {
-      if (error instanceof MdblistApiError) {
-        throw error;
-      }
-
-      if (axios.isAxiosError(error)) {
-        const statusCode = error.response?.status;
-        const responseMessage =
-          typeof error.response?.data?.error === 'string'
-            ? error.response.data.error
-            : 'MDBList request failed.';
-        throw new MdblistApiError(
-          responseMessage,
-          statusCode,
-          error.response?.headers?.['retry-after']
-        );
-      }
-
-      throw new MdblistApiError('MDBList request failed.');
+      throw this.toApiError(error);
     }
+  }
+
+  public async test(): Promise<void> {
+    if (!this.apiKey) {
+      throw new MdblistApiError('MDBList API key is not configured.', 503);
+    }
+
+    try {
+      await this.get('/user', undefined, 0);
+    } catch (error) {
+      throw this.toApiError(error);
+    }
+  }
+
+  private toApiError(error: unknown): MdblistApiError {
+    if (error instanceof MdblistApiError) {
+      return error;
+    }
+
+    if (axios.isAxiosError(error)) {
+      const statusCode = error.response?.status;
+      const responseMessage =
+        typeof error.response?.data?.error === 'string'
+          ? error.response.data.error
+          : 'MDBList request failed.';
+      return new MdblistApiError(
+        responseMessage,
+        statusCode,
+        error.response?.headers?.['retry-after']
+      );
+    }
+
+    return new MdblistApiError('MDBList request failed.');
   }
 }
 

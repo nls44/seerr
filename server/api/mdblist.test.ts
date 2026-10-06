@@ -72,6 +72,19 @@ describe('parseMdblistItems', () => {
       ]
     );
   });
+
+  it('parses the current split movies and shows response shape', () => {
+    assert.deepEqual(
+      parseMdblistItems([
+        { id: 10, mediatype: 'movie' },
+        { id: 20, mediatype: 'show' },
+      ]),
+      [
+        { tmdbId: 10, mediaType: 'movie' },
+        { tmdbId: 20, mediaType: 'tv' },
+      ]
+    );
+  });
 });
 
 describe('MdblistAPI.getListItems', () => {
@@ -104,6 +117,38 @@ describe('MdblistAPI.getListItems', () => {
       totalResults: 1,
     });
     assert.equal(requests, 1);
+  });
+
+  it('parses movies and shows returned in separate arrays', async () => {
+    const api = new TestMdblistAPI('test-key');
+    api.installAdapter(async (config) =>
+      axiosResponse(config, {
+        movies: [{ ids: { tmdb: 1 }, mediatype: 'movie' }],
+        shows: [{ id: 2, mediatype: 'show' }],
+        pagination: { total: 2 },
+      })
+    );
+
+    assert.deepEqual(await api.getListItems({ listId: 'user/list' }), {
+      items: [
+        { tmdbId: 1, mediaType: 'movie' },
+        { tmdbId: 2, mediaType: 'tv' },
+      ],
+      totalResults: 2,
+    });
+  });
+
+  it('tests an API key against the authenticated user endpoint', async () => {
+    const api = new TestMdblistAPI('test-key');
+    let endpoint = '';
+    api.installAdapter(async (config) => {
+      endpoint = config.url ?? '';
+      return axiosResponse(config, []);
+    });
+
+    await api.test();
+
+    assert.equal(endpoint, '/user');
   });
 
   it('preserves rate-limit errors and retry hints', async () => {
