@@ -368,6 +368,19 @@ const Discover = () => {
               />
             );
             break;
+          case DiscoverSliderType.MDBLIST:
+            sliderComponent = (
+              <MediaSlider
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url="/api/v1/discover/mdblist"
+                extraParams={`list=${encodeURIExtraParams(slider.data ?? '')}`}
+                linkUrl={`/discover/mdblist?list=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}`}
+              />
+            );
+            break;
           case DiscoverSliderType.TMDB_MOVIE_STREAMING_SERVICES:
             sliderComponent = (
               <MediaSlider

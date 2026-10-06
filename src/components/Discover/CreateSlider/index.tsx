@@ -29,6 +29,7 @@ const messages = defineMessages('components.Discover.CreateSlider', {
   providetmdbkeywordid: 'Provide a TMDB Keyword ID',
   providetmdbgenreid: 'Provide a TMDB Genre ID',
   providetmdbsearch: 'Provide a search query',
+  providemdblist: 'Provide a MDBList URL or list identifier',
   providetmdbstudio: 'Provide TMDB Studio ID',
   providetmdbnetwork: 'Provide TMDB Network ID',
   addsuccess: 'Created new slider and saved discover customization settings.',
@@ -280,6 +281,14 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
       params: 'query=$value',
       titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
       dataPlaceholderText: intl.formatMessage(messages.providetmdbsearch),
+    },
+    {
+      type: DiscoverSliderType.MDBLIST,
+      title: intl.formatMessage(sliderTitles.mdblist),
+      dataUrl: '/api/v1/discover/mdblist',
+      params: 'list=$value',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+      dataPlaceholderText: intl.formatMessage(messages.providemdblist),
     },
     {
       type: DiscoverSliderType.TMDB_MOVIE_STREAMING_SERVICES,

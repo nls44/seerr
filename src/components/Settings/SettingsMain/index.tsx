@@ -80,7 +80,15 @@ const messages = defineMessages('components.Settings.SettingsMain', {
   versionCheck: 'Version Check',
   versionCheckTip: 'Automatically check for new versions on GitHub.',
   validationUrl: 'You must provide a valid URL',
+  mdblistApiKey: 'MDBList API Key',
+  mdblistApiKeyTip:
+    'Stored on the server and used only for MDBList-backed Discover sliders. MDBList requires a key even for public lists.',
+  mdblistConfigured: 'An MDBList API key is already configured.',
 });
+
+interface MdblistSettingsResponse {
+  hasApiKey: boolean;
+}
 
 const SettingsMain = () => {
   const { addToast } = useToasts();
@@ -92,6 +100,9 @@ const SettingsMain = () => {
     error,
     mutate: revalidate,
   } = useSWR<MainSettings>('/api/v1/settings/main');
+  const { data: mdblistSettings } = useSWR<MdblistSettingsResponse>(
+    '/api/v1/settings/mdblist'
+  );
   const { data: userData } = useSWR<UserSettingsGeneralResponse>(
     currentUser ? `/api/v1/user/${currentUser.id}/settings/main` : null
   );
@@ -183,6 +194,7 @@ const SettingsMain = () => {
             cacheImages: data?.cacheImages,
             youtubeUrl: data?.youtubeUrl,
             versionCheck: data?.versionCheck,
+            mdblistApiKey: '',
           }}
           enableReinitialize
           validationSchema={MainSettingsSchema}
@@ -208,6 +220,11 @@ const SettingsMain = () => {
                 youtubeUrl: values.youtubeUrl,
                 versionCheck: values?.versionCheck,
               });
+              if (values.mdblistApiKey?.trim()) {
+                await axios.post('/api/v1/settings/mdblist', {
+                  apiKey: values.mdblistApiKey.trim(),
+                });
+              }
               mutate('/api/v1/settings/public');
               mutate('/api/v1/status?checkUpdateAvailable=false');
 
@@ -275,6 +292,29 @@ const SettingsMain = () => {
                           <ArrowPathIcon />
                         </button>
                       </div>
+                    </div>
+                  </div>
+                )}
+                {userHasPermission(Permission.ADMIN) && (
+                  <div className="form-row">
+                    <label htmlFor="mdblistApiKey" className="text-label">
+                      {intl.formatMessage(messages.mdblistApiKey)}
+                      <span className="label-tip">
+                        {intl.formatMessage(messages.mdblistApiKeyTip)}
+                      </span>
+                    </label>
+                    <div className="form-input-area">
+                      <Field
+                        id="mdblistApiKey"
+                        name="mdblistApiKey"
+                        type="password"
+                        placeholder={
+                          mdblistSettings?.hasApiKey
+                            ? intl.formatMessage(messages.mdblistConfigured)
+                            : undefined
+                        }
+                        autoComplete="new-password"
+                      />
                     </div>
                   </div>
                 )}

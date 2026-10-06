@@ -1,3 +1,7 @@
+import MdblistAPI, {
+  MdblistApiError,
+  parseMdblistListId,
+} from '@server/api/mdblist';
 import PlexTvAPI from '@server/api/plextv';
 import TheMovieDb, {
   MovieSortOptionsIterable,
@@ -16,10 +20,13 @@ import type {
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { mapProductionCompany } from '@server/models/Movie';
+import type { MovieResult, TvResult } from '@server/models/Search';
 import {
   mapCollectionResult,
+  mapMovieDetailsToResult,
   mapMovieResult,
   mapPersonResult,
+  mapTvDetailsToResult,
   mapTvResult,
 } from '@server/models/Search';
 import { mapNetwork } from '@server/models/Tv';
@@ -1001,5 +1008,143 @@ discoverRoutes.get<Record<string, unknown>, WatchlistResponse>(
     });
   }
 );
+
+discoverRoutes.get('/mdblist', async (req, res, next) => {
+  const list = req.query.list;
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const settings = getSettings();
+
+  if (!settings.mdblist.apiKey) {
+    return next({ status: 503, message: 'MDBList is not configured.' });
+  }
+
+  let listId: string;
+  try {
+    listId = parseMdblistListId(list);
+  } catch (e) {
+    return next({ status: 400, message: e.message });
+  }
+
+  try {
+    const mdblist = new MdblistAPI();
+    const listPage = await mdblist.getListItems({ listId, page, limit: 20 });
+    const tmdb = createTmdbWithRegionLanguage(req.user);
+
+    const hydrated = await Promise.all(
+      listPage.items.map(async (item) => {
+        try {
+          if (item.mediaType === MediaType.MOVIE) {
+            const details = await tmdb.getMovie({
+              movieId: item.tmdbId,
+              language: req.locale,
+            });
+            return {
+              item,
+              result: mapMovieDetailsToResult(details),
+            };
+          }
+
+          const details = await tmdb.getTvShow({
+            tvId: item.tmdbId,
+            language: req.locale,
+          });
+          return {
+            item,
+            result: mapTvDetailsToResult(details),
+          };
+        } catch (e) {
+          logger.debug('Unable to hydrate an MDBList item from TMDB', {
+            label: 'API',
+            errorMessage: e.message,
+            tmdbId: item.tmdbId,
+            mediaType: item.mediaType,
+          });
+          return null;
+        }
+      })
+    );
+
+    const validHydrated = hydrated.filter(
+      (item): item is NonNullable<(typeof hydrated)[number]> => item !== null
+    );
+    const media = await Media.getRelatedMedia(
+      req.user,
+      validHydrated.map(({ item }) => item),
+      { includeActiveRequest: true }
+    );
+
+    const results: (MovieResult | TvResult)[] = validHydrated.flatMap(
+      ({ item, result }): (MovieResult | TvResult)[] => {
+        if (
+          item.mediaType === MediaType.MOVIE &&
+          result.media_type === 'movie'
+        ) {
+          return [
+            mapMovieResult(
+              result,
+              media.find(
+                (med) =>
+                  med.tmdbId === item.tmdbId &&
+                  med.mediaType === MediaType.MOVIE
+              )
+            ),
+          ];
+        }
+
+        if (item.mediaType === MediaType.TV && result.media_type === 'tv') {
+          return [
+            mapTvResult(
+              result,
+              media.find(
+                (med) =>
+                  med.tmdbId === item.tmdbId && med.mediaType === MediaType.TV
+              )
+            ),
+          ];
+        }
+
+        return [];
+      }
+    );
+
+    const totalResults =
+      listPage.totalResults ?? (page - 1) * 20 + listPage.items.length;
+    const totalPages =
+      listPage.totalResults !== undefined
+        ? Math.max(1, Math.ceil(listPage.totalResults / 20))
+        : listPage.items.length === 20
+          ? page + 1
+          : page;
+
+    return res.status(200).json({
+      page,
+      totalPages,
+      totalResults,
+      results,
+    });
+  } catch (e) {
+    if (e instanceof MdblistApiError) {
+      if (e.retryAfter) {
+        res.setHeader('Retry-After', e.retryAfter);
+      }
+      return next({
+        status: e.statusCode === 429 ? 429 : 502,
+        message:
+          e.statusCode === 401 || e.statusCode === 403
+            ? 'MDBList API key is invalid.'
+            : 'Unable to retrieve the MDBList list.',
+      });
+    }
+
+    logger.error('Something went wrong retrieving an MDBList slider', {
+      label: 'API',
+      errorMessage: e.message,
+    });
+    return next({
+      status: 500,
+      message: 'Unable to retrieve the MDBList list.',
+    });
+  }
+});
 
 export default discoverRoutes;

@@ -2091,6 +2091,9 @@ components:
           type: string
           example: '1234'
           nullable: true
+        order:
+          type: number
+          example: 0
       required:
         - type
         - enabled
@@ -3892,6 +3895,49 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/DiscoverSlider'
+  /settings/mdblist:
+    get:
+      summary: Get MDBList configuration status
+      description: Returns whether an MDBList API key is configured without returning the key.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: MDBList configuration status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasApiKey:
+                    type: boolean
+                required:
+                  - hasApiKey
+    post:
+      summary: Configure the MDBList API key
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - apiKey
+              properties:
+                apiKey:
+                  type: string
+      responses:
+        '200':
+          description: MDBList configuration status
+    delete:
+      summary: Remove the MDBList API key
+      tags:
+        - settings
+      responses:
+        '204':
+          description: MDBList API key removed
   /settings/discover/{sliderId}:
     put:
       summary: Update a single slider
@@ -6381,6 +6427,45 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/MovieResult'
+  /discover/mdblist:
+    get:
+      summary: Get an MDBList-backed discovery page
+      description: Fetches an administrator-configured MDBList using the server-side API key and hydrates its TMDB movie and TV IDs.
+      tags:
+        - search
+      parameters:
+        - in: query
+          name: list
+          required: true
+          schema:
+            type: string
+            example: https://mdblist.com/lists/official/movies
+        - in: query
+          name: page
+          schema:
+            type: number
+            example: 1
+            default: 1
+      responses:
+        '200':
+          description: Ordered MDBList results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: number
+                  totalPages:
+                    type: number
+                  totalResults:
+                    type: number
+                  results:
+                    type: array
+                    items:
+                      anyOf:
+                        - $ref: '#/components/schemas/MovieResult'
+                        - $ref: '#/components/schemas/TvResult'
   /discover/genreslider/movie:
     get:
       summary: Get genre slider data for movies

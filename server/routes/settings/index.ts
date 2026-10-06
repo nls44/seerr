@@ -41,6 +41,7 @@ import path from 'path';
 import semver from 'semver';
 import { URL } from 'url';
 import { z } from 'zod';
+import mdblistRoutes from './mdblist';
 import metadataRoutes from './metadata';
 import notificationRoutes from './notifications';
 import radarrRoutes from './radarr';
@@ -53,6 +54,7 @@ settingsRoutes.use('/radarr', radarrRoutes);
 settingsRoutes.use('/sonarr', sonarrRoutes);
 settingsRoutes.use('/discover', discoverSettingRoutes);
 settingsRoutes.use('/metadatas', metadataRoutes);
+settingsRoutes.use('/mdblist', mdblistRoutes);
 
 const libraryUpdateSchema = z.object({
   enabled: z.boolean(),

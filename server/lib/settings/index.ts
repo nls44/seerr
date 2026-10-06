@@ -65,6 +65,10 @@ export interface TautulliSettings {
   externalUrl?: string;
 }
 
+export interface MdblistSettings {
+  apiKey: string;
+}
+
 export interface DVRSettings {
   id: number;
   name: string;
@@ -383,6 +387,7 @@ export interface AllSettings {
   plex: PlexSettings;
   jellyfin: JellyfinSettings;
   tautulli: TautulliSettings;
+  mdblist: MdblistSettings;
   radarr: RadarrSettings[];
   sonarr: SonarrSettings[];
   public: PublicSettings;
@@ -457,6 +462,9 @@ class Settings {
         apiKey: '',
       },
       tautulli: {},
+      mdblist: {
+        apiKey: '',
+      },
       metadataSettings: {
         tv: MetadataProviderType.TMDB,
         anime: MetadataProviderType.TMDB,
@@ -673,6 +681,14 @@ class Settings {
 
   set tautulli(data: TautulliSettings) {
     this.data.tautulli = mergeSettings(this.data.tautulli, data);
+  }
+
+  get mdblist(): MdblistSettings {
+    return this.data.mdblist;
+  }
+
+  set mdblist(data: MdblistSettings) {
+    this.data.mdblist = mergeSettings(this.data.mdblist, data);
   }
 
   get metadataSettings(): MetadataSettings {

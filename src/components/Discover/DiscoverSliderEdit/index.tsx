@@ -165,6 +165,8 @@ const DiscoverSliderEdit = ({
         return intl.formatMessage(sliderTitles.tmdbnetwork);
       case DiscoverSliderType.TMDB_SEARCH:
         return intl.formatMessage(sliderTitles.tmdbsearch);
+      case DiscoverSliderType.MDBLIST:
+        return intl.formatMessage(sliderTitles.mdblist);
       case DiscoverSliderType.TMDB_MOVIE_STREAMING_SERVICES:
         return intl.formatMessage(sliderTitles.tmdbmoviestreamingservices);
       case DiscoverSliderType.TMDB_TV_STREAMING_SERVICES:
@@ -244,6 +246,9 @@ const DiscoverSliderEdit = ({
           )}
           {slider.type === DiscoverSliderType.TMDB_SEARCH && (
             <Tag iconSvg={<MagnifyingGlassIcon />}>{slider.data}</Tag>
+          )}
+          {slider.type === DiscoverSliderType.MDBLIST && (
+            <Tag>{slider.data}</Tag>
           )}
         </div>
         <div className="flex items-center space-x-2">
