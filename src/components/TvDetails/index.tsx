@@ -15,6 +15,7 @@ import PlayButton from '@app/components/Common/PlayButton';
 import StatusBadgeMini from '@app/components/Common/StatusBadgeMini';
 import Tag from '@app/components/Common/Tag';
 import Tooltip from '@app/components/Common/Tooltip';
+import TrailerPlayer from '@app/components/Common/TrailerPlayer';
 import ExternalLinkBlock from '@app/components/ExternalLinkBlock';
 import IssueModal from '@app/components/IssueModal';
 import ManageSlideOver from '@app/components/ManageSlideOver';
@@ -81,6 +82,7 @@ const messages = defineMessages('components.TvDetails', {
   recommendations: 'Recommendations',
   similar: 'Similar Series',
   watchtrailer: 'Watch Trailer',
+  hidetrailer: 'Hide Trailer',
   overviewunavailable: 'Overview unavailable.',
   originaltitle: 'Original Title',
   showtype: 'Series Type',
@@ -132,6 +134,7 @@ const TvDetails = ({ tv }: TvDetailsProps) => {
   const [isBlocklistUpdating, setIsBlocklistUpdating] =
     useState<boolean>(false);
   const [showBlocklistModal, setShowBlocklistModal] = useState(false);
+  const [showTrailer, setShowTrailer] = useState(false);
   const { addToast } = useToasts();
 
   const {
@@ -221,19 +224,13 @@ const TvDetails = ({ tv }: TvDetailsProps) => {
     ?.filter((r) => r.type === 'Trailer')
     .sort((a, b) => a.size - b.size)
     .pop();
-  const trailerUrl =
-    trailerVideo?.site === 'YouTube' &&
-    settings.currentSettings.youtubeUrl != ''
-      ? `${settings.currentSettings.youtubeUrl}${trailerVideo?.key}`
-      : trailerVideo?.url;
-
-  if (trailerUrl) {
-    mediaLinks.push({
-      text: intl.formatMessage(messages.watchtrailer),
-      url: trailerUrl,
-      svg: <FilmIcon />,
-    });
-  }
+  const trailerEmbedUrl = trailerVideo?.key
+    ? settings.currentSettings.youtubeUrl
+      ? `${settings.currentSettings.youtubeUrl}${trailerVideo.key}`
+      : `https://www.youtube-nocookie.com/embed/${encodeURIComponent(
+          trailerVideo.key
+        )}?rel=0`
+    : undefined;
 
   const discoverRegion = user?.settings?.discoverRegion
     ? user.settings.discoverRegion
@@ -676,6 +673,20 @@ const TvDetails = ({ tv }: TvDetailsProps) => {
                 )}
               </>
             )}
+          {trailerEmbedUrl && (
+            <Button
+              buttonType={showTrailer ? 'primary' : 'ghost'}
+              buttonSize="md"
+              onClick={() => setShowTrailer((current) => !current)}
+            >
+              <FilmIcon />
+              <span>
+                {intl.formatMessage(
+                  showTrailer ? messages.hidetrailer : messages.watchtrailer
+                )}
+              </span>
+            </Button>
+          )}
           <div className="z-20">
             <PlayButton links={mediaLinks} />
           </div>
@@ -741,6 +752,14 @@ const TvDetails = ({ tv }: TvDetailsProps) => {
           )}
         </div>
       </div>
+      {showTrailer && trailerEmbedUrl && (
+        <TrailerPlayer
+          embedUrl={trailerEmbedUrl}
+          title={intl.formatMessage(messages.watchtrailer)}
+          closeLabel={intl.formatMessage(messages.hidetrailer)}
+          onClose={() => setShowTrailer(false)}
+        />
+      )}
       <div className="media-overview">
         <div className="media-overview-left">
           {data.tagline && <div className="tagline">{data.tagline}</div>}

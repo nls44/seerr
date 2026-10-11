@@ -36,6 +36,8 @@ const messages = defineMessages('components.Settings', {
     'TVDB provider does not work, please select another metadata provider',
   mdblistProviderDoesnotWork:
     'MDBList provider does not work, please check the API key',
+  streamingAvailabilityProviderDoesnotWork:
+    'Streaming Availability provider does not work, please check the API key',
   mdblistSettings: 'MDBList',
   mdblistSettingsDescription:
     'Configure the API key used by MDBList-backed Discover sliders.',
@@ -43,6 +45,14 @@ const messages = defineMessages('components.Settings', {
   mdblistApiKeyTip:
     'MDBList requires an API key even when the list itself is public.',
   mdblistConfigured: 'An MDBList API key is already configured.',
+  streamingAvailabilitySettings: 'Streaming Availability',
+  streamingAvailabilitySettingsDescription:
+    'Configure the API key used by streaming Discover sliders.',
+  streamingAvailabilityApiKey: 'Streaming Availability API Key',
+  streamingAvailabilityApiKeyTip:
+    'Get a free API key from Movie of the Night Streaming Availability API.',
+  streamingAvailabilityConfigured:
+    'A Streaming Availability API key is already configured.',
   allChosenProvidersAreOperational:
     'All chosen metadata providers are operational',
   connectionTestFailed: 'Connection test failed',
@@ -56,6 +66,7 @@ interface ProviderResponse {
   tvdb: ProviderStatus;
   tmdb: ProviderStatus;
   mdblist: ProviderStatus;
+  streamingAvailability: ProviderStatus;
 }
 
 interface MetadataValues {
@@ -69,9 +80,14 @@ interface MetadataSettings {
 
 interface MetadataFormValues extends MetadataSettings {
   mdblistApiKey: string;
+  streamingAvailabilityApiKey: string;
 }
 
 interface MdblistSettingsResponse {
+  hasApiKey: boolean;
+}
+
+interface StreamingAvailabilitySettingsResponse {
   hasApiKey: boolean;
 }
 
@@ -83,6 +99,7 @@ const SettingsMetadata = () => {
     tmdb: 'not tested',
     tvdb: 'not tested',
     mdblist: 'not tested',
+    streamingAvailability: 'not tested',
   };
 
   const [providerStatus, setProviderStatus] =
@@ -106,6 +123,12 @@ const SettingsMetadata = () => {
   );
   const { data: mdblistSettings, mutate: revalidateMdblist } =
     useSWR<MdblistSettingsResponse>('/api/v1/settings/mdblist');
+  const {
+    data: streamingAvailabilitySettings,
+    mutate: revalidateStreamingAvailability,
+  } = useSWR<StreamingAvailabilitySettingsResponse>(
+    '/api/v1/settings/streaming-availability'
+  );
 
   const testConnection = async (
     values: MetadataFormValues
@@ -122,6 +145,9 @@ const SettingsMetadata = () => {
       tvdb: useTvdb,
       mdblist: true,
       mdblistApiKey: values.mdblistApiKey.trim() || undefined,
+      streamingAvailability: true,
+      streamingAvailabilityApiKey:
+        values.streamingAvailabilityApiKey.trim() || undefined,
     };
 
     try {
@@ -134,6 +160,8 @@ const SettingsMetadata = () => {
         tmdb: useTmdb ? response.data.tests.tmdb : 'not tested',
         tvdb: useTvdb ? response.data.tests.tvdb : 'not tested',
         mdblist: response.data.tests.mdblist ?? 'not tested',
+        streamingAvailability:
+          response.data.tests.streamingAvailability ?? 'not tested',
       };
 
       setProviderStatus(newStatus);
@@ -151,6 +179,8 @@ const SettingsMetadata = () => {
             tmdb: useTmdb ? errorData.tests.tmdb : 'not tested',
             tvdb: useTvdb ? errorData.tests.tvdb : 'not tested',
             mdblist: errorData.tests.mdblist ?? 'not tested',
+            streamingAvailability:
+              errorData.tests.streamingAvailability ?? 'not tested',
           };
 
           setProviderStatus(newStatus);
@@ -175,6 +205,7 @@ const SettingsMetadata = () => {
           tvdb: ProviderStatus;
           tmdb: ProviderStatus;
           mdblist?: ProviderStatus;
+          streamingAvailability?: ProviderStatus;
         };
       }>('/api/v1/settings/metadatas', {
         tv: values.tv,
@@ -195,6 +226,9 @@ const SettingsMetadata = () => {
           mdblist: response.data.tests.mdblist
             ? mapStatusValue(response.data.tests.mdblist)
             : providerStatus.mdblist,
+          streamingAvailability: response.data.tests.streamingAvailability
+            ? mapStatusValue(response.data.tests.streamingAvailability)
+            : providerStatus.streamingAvailability,
         });
       }
 
@@ -214,6 +248,7 @@ const SettingsMetadata = () => {
             tvdb: string;
             tmdb: string;
             mdblist?: string;
+            streamingAvailability?: string;
           };
         };
 
@@ -232,6 +267,9 @@ const SettingsMetadata = () => {
             mdblist: errorData.tests.mdblist
               ? mapStatusValue(errorData.tests.mdblist)
               : providerStatus.mdblist,
+            streamingAvailability: errorData.tests.streamingAvailability
+              ? mapStatusValue(errorData.tests.streamingAvailability)
+              : providerStatus.streamingAvailability,
           });
         }
       }
@@ -348,12 +386,31 @@ const SettingsMetadata = () => {
               </Badge>
             </span>
           </div>
+          <div className="flex items-center">
+            <span className="mr-2 w-24">Streaming:</span>
+            <span
+              className={`text-sm ${getStatusClass(
+                providerStatus.streamingAvailability
+              )}`}
+              data-testid="streaming-availability-status"
+            >
+              <Badge
+                badgeType={getBadgeType(providerStatus.streamingAvailability)}
+              >
+                {getStatusMessage(providerStatus.streamingAvailability)}
+              </Badge>
+            </span>
+          </div>
         </div>
       </div>
 
       <div className="section">
         <Formik
-          initialValues={{ metadata: initialValues, mdblistApiKey: '' }}
+          initialValues={{
+            metadata: initialValues,
+            mdblistApiKey: '',
+            streamingAvailabilityApiKey: '',
+          }}
           onSubmit={async (values) => {
             try {
               const result = await saveSettings(values.metadata);
@@ -363,6 +420,13 @@ const SettingsMetadata = () => {
                   apiKey: values.mdblistApiKey.trim(),
                 });
                 await revalidateMdblist();
+              }
+
+              if (values.streamingAvailabilityApiKey.trim()) {
+                await axios.post('/api/v1/settings/streaming-availability', {
+                  apiKey: values.streamingAvailabilityApiKey.trim(),
+                });
+                await revalidateStreamingAvailability();
               }
 
               if (data) {
@@ -467,6 +531,46 @@ const SettingsMetadata = () => {
                   </div>
                 </div>
 
+                <div className="mb-6 mt-8">
+                  <h2 className="heading">
+                    {intl.formatMessage(messages.streamingAvailabilitySettings)}
+                  </h2>
+                  <p className="description">
+                    {intl.formatMessage(
+                      messages.streamingAvailabilitySettingsDescription
+                    )}
+                  </p>
+                </div>
+
+                <div className="form-row">
+                  <label
+                    htmlFor="streamingAvailabilityApiKey"
+                    className="text-label"
+                  >
+                    {intl.formatMessage(messages.streamingAvailabilityApiKey)}
+                    <span className="label-tip">
+                      {intl.formatMessage(
+                        messages.streamingAvailabilityApiKeyTip
+                      )}
+                    </span>
+                  </label>
+                  <div className="form-input-area">
+                    <Field
+                      id="streamingAvailabilityApiKey"
+                      name="streamingAvailabilityApiKey"
+                      type="password"
+                      placeholder={
+                        streamingAvailabilitySettings?.hasApiKey
+                          ? intl.formatMessage(
+                              messages.streamingAvailabilityConfigured
+                            )
+                          : undefined
+                      }
+                      autoComplete="new-password"
+                    />
+                  </div>
+                </div>
+
                 <div className="actions">
                   <div className="flex justify-end">
                     <span className="ml-3 inline-flex rounded-md shadow-sm">
@@ -479,7 +583,17 @@ const SettingsMetadata = () => {
                           try {
                             const resp = await testConnection(values);
 
-                            if (resp.mdblist === 'failed') {
+                            if (resp.streamingAvailability === 'failed') {
+                              addToast(
+                                intl.formatMessage(
+                                  messages.streamingAvailabilityProviderDoesnotWork
+                                ),
+                                {
+                                  appearance: 'error',
+                                  autoDismiss: true,
+                                }
+                              );
+                            } else if (resp.mdblist === 'failed') {
                               addToast(
                                 intl.formatMessage(
                                   messages.mdblistProviderDoesnotWork

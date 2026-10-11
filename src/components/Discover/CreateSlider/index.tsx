@@ -12,6 +12,7 @@ import type {
   TmdbKeywordSearchResponse,
 } from '@server/api/themoviedb/interfaces';
 import { DiscoverSliderType } from '@server/constants/discover';
+import { STREAMING_AVAILABILITY_SERVICES } from '@server/constants/streamingAvailability';
 import type DiscoverSlider from '@server/entity/DiscoverSlider';
 import type { GenreSliderItem } from '@server/interfaces/api/discoverInterfaces';
 import type { Keyword, ProductionCompany } from '@server/models/common';
@@ -32,6 +33,10 @@ const messages = defineMessages('components.Discover.CreateSlider', {
   providemdblist: 'Provide a MDBList URL or list identifier',
   providetmdbstudio: 'Provide TMDB Studio ID',
   providetmdbnetwork: 'Provide TMDB Network ID',
+  streamingServicesHelp:
+    'Choose one or more streaming services for this slider.',
+  streamingPopularServicesHelp:
+    'Official rankings are available for the selected services.',
   addsuccess: 'Created new slider and saved discover customization settings.',
   addfail: 'Failed to create new slider.',
   editsuccess: 'Edited slider and saved discover customization settings.',
@@ -60,6 +65,11 @@ type CreateOption = {
   titlePlaceholderText: string;
   dataPlaceholderText?: string;
 };
+
+const streamingAvailabilityPopularTypes = new Set([
+  DiscoverSliderType.STREAMING_POPULAR_MOVIES,
+  DiscoverSliderType.STREAMING_POPULAR_SERIES,
+]);
 
 const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
   const intl = useIntl();
@@ -304,6 +314,34 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
       params: 'watchRegion=$regionValue&watchProviders=$providersValue',
       titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
     },
+    {
+      type: DiscoverSliderType.STREAMING_NEW_MOVIES,
+      title: intl.formatMessage(sliderTitles.streamingNewMovies),
+      dataUrl: '/api/v1/discover/streaming-availability',
+      params: 'mode=new&mediaType=movie&services=$value',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+    },
+    {
+      type: DiscoverSliderType.STREAMING_NEW_SERIES,
+      title: intl.formatMessage(sliderTitles.streamingNewSeries),
+      dataUrl: '/api/v1/discover/streaming-availability',
+      params: 'mode=new&mediaType=tv&services=$value',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+    },
+    {
+      type: DiscoverSliderType.STREAMING_POPULAR_MOVIES,
+      title: intl.formatMessage(sliderTitles.streamingPopularMovies),
+      dataUrl: '/api/v1/discover/streaming-availability',
+      params: 'mode=popular&mediaType=movie&services=$value',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+    },
+    {
+      type: DiscoverSliderType.STREAMING_POPULAR_SERIES,
+      title: intl.formatMessage(sliderTitles.streamingPopularSeries),
+      dataUrl: '/api/v1/discover/streaming-availability',
+      params: 'mode=popular&mediaType=tv&services=$value',
+      titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
+    },
   ];
 
   return (
@@ -479,6 +517,65 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
               />
             );
             break;
+          case DiscoverSliderType.STREAMING_NEW_MOVIES:
+          case DiscoverSliderType.STREAMING_NEW_SERIES:
+          case DiscoverSliderType.STREAMING_POPULAR_MOVIES:
+          case DiscoverSliderType.STREAMING_POPULAR_SERIES: {
+            const popular = streamingAvailabilityPopularTypes.has(
+              activeOption.type
+            );
+            const selectedServices = new Set(
+              (values.data ?? '').split('|').filter(Boolean)
+            );
+            const services = STREAMING_AVAILABILITY_SERVICES.filter(
+              (service) => !popular || service.supportsTop
+            );
+
+            dataInput = (
+              <div className="space-y-3 rounded-md bg-gray-800 p-4">
+                <p className="text-sm text-gray-300">
+                  {intl.formatMessage(
+                    popular
+                      ? messages.streamingPopularServicesHelp
+                      : messages.streamingServicesHelp
+                  )}
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {services.map((service) => (
+                    <label
+                      className="checkbox-label"
+                      htmlFor={`streaming-service-${service.id}`}
+                      key={service.id}
+                    >
+                      <Field
+                        type="checkbox"
+                        id={`streaming-service-${service.id}`}
+                        checked={selectedServices.has(service.id)}
+                        onChange={() => {
+                          const nextServices = new Set(selectedServices);
+                          if (nextServices.has(service.id)) {
+                            nextServices.delete(service.id);
+                          } else {
+                            nextServices.add(service.id);
+                          }
+                          setFieldValue(
+                            'data',
+                            STREAMING_AVAILABILITY_SERVICES.filter((item) =>
+                              nextServices.has(item.id)
+                            )
+                              .map((item) => item.id)
+                              .join('|')
+                          );
+                        }}
+                      />
+                      <span>{service.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            );
+            break;
+          }
           default:
             dataInput = (
               <Field

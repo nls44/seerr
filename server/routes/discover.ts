@@ -3,6 +3,10 @@ import MdblistAPI, {
   parseMdblistListId,
 } from '@server/api/mdblist';
 import PlexTvAPI from '@server/api/plextv';
+import StreamingAvailabilityAPI, {
+  StreamingAvailabilityApiError,
+  parseStreamingAvailabilityServices,
+} from '@server/api/streamingavailability';
 import TheMovieDb, {
   MovieSortOptionsIterable,
   TvSortOptionsIterable,
@@ -20,7 +24,11 @@ import type {
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { mapProductionCompany } from '@server/models/Movie';
-import type { MovieResult, TvResult } from '@server/models/Search';
+import type {
+  MovieResult,
+  StreamingServiceBadge,
+  TvResult,
+} from '@server/models/Search';
 import {
   mapCollectionResult,
   mapMovieDetailsToResult,
@@ -1143,6 +1151,191 @@ discoverRoutes.get('/mdblist', async (req, res, next) => {
     return next({
       status: 500,
       message: 'Unable to retrieve the MDBList list.',
+    });
+  }
+});
+
+discoverRoutes.get('/streaming-availability', async (req, res, next) => {
+  const mode = req.query.mode === 'popular' ? 'popular' : 'new';
+  const mediaType = req.query.mediaType === 'tv' ? 'tv' : 'movie';
+  const showType = mediaType === 'movie' ? 'movie' : 'series';
+  const settings = getSettings();
+
+  if (!settings.streamingAvailability.apiKey) {
+    return next({
+      status: 503,
+      message: 'Streaming Availability API is not configured.',
+    });
+  }
+
+  let services;
+  try {
+    services = parseStreamingAvailabilityServices(req.query.services, {
+      topOnly: mode === 'popular',
+    });
+  } catch (e) {
+    return next({ status: 400, message: e.message });
+  }
+
+  const country = (
+    req.user?.settings?.streamingRegion ||
+    settings.main.streamingRegion ||
+    settings.main.discoverRegion ||
+    'US'
+  ).toLowerCase();
+  const language = (req.locale || 'en').split('-')[0];
+
+  try {
+    const streamingAvailability = new StreamingAvailabilityAPI();
+    const items =
+      mode === 'popular'
+        ? await streamingAvailability.getTopShows({
+            country: country === 'all' ? 'us' : country,
+            services,
+            showType,
+            language,
+          })
+        : await streamingAvailability.getNewShows({
+            country: country === 'all' ? 'us' : country,
+            services,
+            showType,
+            language,
+          });
+    let serviceLogos: StreamingServiceBadge[] = [];
+    try {
+      serviceLogos = await streamingAvailability.getServiceLogos({
+        country: country === 'all' ? 'us' : country,
+        services,
+        language,
+      });
+    } catch (error) {
+      logger.debug('Unable to retrieve Streaming Availability service logos', {
+        label: 'API',
+        errorMessage: error.message,
+      });
+    }
+    const serviceLogosById = new Map(
+      serviceLogos.map((service) => [service.id, service])
+    );
+    const tmdb = createTmdbWithRegionLanguage(req.user);
+
+    const hydrated = await Promise.all(
+      items.map(async (item) => {
+        try {
+          if (item.mediaType === MediaType.MOVIE) {
+            const details = await tmdb.getMovie({
+              movieId: item.tmdbId,
+              language: req.locale,
+            });
+            return {
+              item,
+              result: mapMovieDetailsToResult(details),
+            };
+          }
+
+          const details = await tmdb.getTvShow({
+            tvId: item.tmdbId,
+            language: req.locale,
+          });
+          return {
+            item,
+            result: mapTvDetailsToResult(details),
+          };
+        } catch (e) {
+          logger.debug(
+            'Unable to hydrate a Streaming Availability item from TMDB',
+            {
+              label: 'API',
+              errorMessage: e.message,
+              tmdbId: item.tmdbId,
+              mediaType: item.mediaType,
+            }
+          );
+          return null;
+        }
+      })
+    );
+
+    const validHydrated = hydrated.filter(
+      (item): item is NonNullable<(typeof hydrated)[number]> => item !== null
+    );
+    const media = await Media.getRelatedMedia(
+      req.user,
+      validHydrated.map(({ item }) => item),
+      { includeActiveRequest: true }
+    );
+
+    const results: (MovieResult | TvResult)[] = validHydrated.flatMap(
+      ({ item, result }): (MovieResult | TvResult)[] => {
+        if (
+          item.mediaType === MediaType.MOVIE &&
+          result.media_type === 'movie'
+        ) {
+          return [
+            {
+              ...mapMovieResult(
+                result,
+                media.find(
+                  (med) =>
+                    med.tmdbId === item.tmdbId &&
+                    med.mediaType === MediaType.MOVIE
+                )
+              ),
+              streamingServices: item.streamingServiceIds
+                .map((serviceId) => serviceLogosById.get(serviceId))
+                .filter(
+                  (service): service is StreamingServiceBadge =>
+                    service !== undefined
+                ),
+            },
+          ];
+        }
+
+        if (item.mediaType === MediaType.TV && result.media_type === 'tv') {
+          return [
+            {
+              ...mapTvResult(
+                result,
+                media.find(
+                  (med) =>
+                    med.tmdbId === item.tmdbId && med.mediaType === MediaType.TV
+                )
+              ),
+              streamingServices: item.streamingServiceIds
+                .map((serviceId) => serviceLogosById.get(serviceId))
+                .filter(
+                  (service): service is StreamingServiceBadge =>
+                    service !== undefined
+                ),
+            },
+          ];
+        }
+
+        return [];
+      }
+    );
+
+    return res.status(200).json({
+      page: 1,
+      totalPages: 1,
+      totalResults: results.length,
+      results,
+    });
+  } catch (e) {
+    if (e instanceof StreamingAvailabilityApiError) {
+      return next({ status: e.statusCode ?? 500, message: e.message });
+    }
+
+    logger.debug(
+      'Something went wrong retrieving Streaming Availability data',
+      {
+        label: 'API',
+        errorMessage: e.message,
+      }
+    );
+    return next({
+      status: 500,
+      message: 'Unable to retrieve Streaming Availability data.',
     });
   }
 });

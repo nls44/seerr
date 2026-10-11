@@ -23,7 +23,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { MediaStatus } from '@server/constants/media';
 import type { Watchlist } from '@server/entity/Watchlist';
-import type { MediaType } from '@server/models/Search';
+import type { MediaType, StreamingServiceBadge } from '@server/models/Search';
 import axios from 'axios';
 import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
@@ -43,6 +43,7 @@ interface TitleCardProps {
   inProgress?: boolean;
   isAddedToWatchlist?: number | boolean;
   mutateParent?: () => void;
+  streamingServices?: StreamingServiceBadge[];
 }
 
 const messages = defineMessages('components.TitleCard', {
@@ -67,6 +68,7 @@ const TitleCard = ({
   inProgress = false,
   canExpand = false,
   mutateParent,
+  streamingServices,
 }: TitleCardProps) => {
   const isTouch = useIsTouch();
   const intl = useIntl();
@@ -385,21 +387,43 @@ const TitleCard = ({
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             fill
           />
-          <div className="absolute left-0 right-0 flex items-center justify-between p-2">
-            <div
-              className={`pointer-events-none z-40 self-start rounded-full border shadow-md ${
-                mediaType === 'movie' || mediaType === 'collection'
-                  ? 'border-blue-500 bg-blue-600/80'
-                  : 'border-purple-600 bg-purple-600/80'
-              }`}
-            >
-              <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
-                {mediaType === 'movie'
-                  ? intl.formatMessage(globalMessages.movie)
-                  : mediaType === 'collection'
-                    ? intl.formatMessage(globalMessages.collection)
-                    : intl.formatMessage(globalMessages.tvshow)}
+          <div className="absolute left-0 right-0 flex items-start justify-between gap-1 p-2">
+            <div className="flex min-w-0 items-center gap-1">
+              <div
+                className={`pointer-events-none z-40 self-start rounded-full border shadow-md ${
+                  mediaType === 'movie' || mediaType === 'collection'
+                    ? 'border-blue-500 bg-blue-600/80'
+                    : 'border-purple-600 bg-purple-600/80'
+                }`}
+              >
+                <div className="flex h-4 items-center px-2 py-2 text-center text-xs font-medium uppercase tracking-wider text-white sm:h-5">
+                  {mediaType === 'movie'
+                    ? intl.formatMessage(globalMessages.movie)
+                    : mediaType === 'collection'
+                      ? intl.formatMessage(globalMessages.collection)
+                      : intl.formatMessage(globalMessages.tvshow)}
+                </div>
               </div>
+              {!!streamingServices?.length && (
+                <div className="pointer-events-none z-40 flex min-w-0 items-center gap-1 overflow-hidden">
+                  {streamingServices.slice(0, 3).map((service) => (
+                    <div
+                      key={service.id}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/90 p-1 shadow-md"
+                      title={service.name}
+                    >
+                      <CachedImage
+                        type="external"
+                        src={service.logoPath}
+                        alt={service.name}
+                        width={24}
+                        height={24}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             {showDetail && currentStatus !== MediaStatus.BLOCKLISTED && (
               <div className="flex flex-col gap-1">

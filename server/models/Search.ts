@@ -12,6 +12,12 @@ import type Media from '@server/entity/Media';
 
 export type MediaType = 'tv' | 'movie' | 'person' | 'collection';
 
+export interface StreamingServiceBadge {
+  id: string;
+  name: string;
+  logoPath: string;
+}
+
 interface SearchResult {
   id: number;
   mediaType: MediaType;
@@ -24,6 +30,7 @@ interface SearchResult {
   overview: string;
   originalLanguage: string;
   mediaInfo?: Media;
+  streamingServices?: StreamingServiceBadge[];
 }
 
 export interface MovieResult extends SearchResult {

@@ -1,4 +1,5 @@
 import MdblistAPI from '@server/api/mdblist';
+import StreamingAvailabilityAPI from '@server/api/streamingavailability';
 import TheMovieDb from '@server/api/themoviedb';
 import Tvdb from '@server/api/tvdb';
 import {
@@ -98,6 +99,7 @@ metadataRoutes.post('/test', async (req, res) => {
   let tvdbTest = -1;
   let tmdbTest = -1;
   let mdblistTest = -1;
+  let streamingAvailabilityTest = -1;
 
   try {
     const body = req.body as {
@@ -105,6 +107,8 @@ metadataRoutes.post('/test', async (req, res) => {
       tvdb: boolean;
       mdblist?: boolean;
       mdblistApiKey?: string;
+      streamingAvailability?: boolean;
+      streamingAvailabilityApiKey?: string;
     };
 
     try {
@@ -151,7 +155,29 @@ metadataRoutes.post('/test', async (req, res) => {
       });
     }
 
-    const success = !(tvdbTest === 0 || tmdbTest === 0 || mdblistTest === 0);
+    try {
+      if (body.streamingAvailability) {
+        streamingAvailabilityTest = 0;
+        const streamingAvailability = new StreamingAvailabilityAPI(
+          body.streamingAvailabilityApiKey?.trim() ||
+            getSettings().streamingAvailability.apiKey
+        );
+        await streamingAvailability.test();
+        streamingAvailabilityTest = 1;
+      }
+    } catch (e) {
+      logger.error('Failed to test streaming availability provider', {
+        label: 'MetadataProvider',
+        message: e.message,
+      });
+    }
+
+    const success = !(
+      tvdbTest === 0 ||
+      tmdbTest === 0 ||
+      mdblistTest === 0 ||
+      streamingAvailabilityTest === 0
+    );
     const statusCode = success ? 200 : 500;
 
     return res.status(statusCode).json({
@@ -160,6 +186,7 @@ metadataRoutes.post('/test', async (req, res) => {
         tmdb: getTestResultString(tmdbTest),
         tvdb: getTestResultString(tvdbTest),
         mdblist: getTestResultString(mdblistTest),
+        streamingAvailability: getTestResultString(streamingAvailabilityTest),
       },
     });
   } catch (e) {
@@ -169,6 +196,7 @@ metadataRoutes.post('/test', async (req, res) => {
         tmdb: getTestResultString(tmdbTest),
         tvdb: getTestResultString(tvdbTest),
         mdblist: getTestResultString(mdblistTest),
+        streamingAvailability: getTestResultString(streamingAvailabilityTest),
       },
       error: e.message,
     });

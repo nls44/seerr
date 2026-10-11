@@ -167,6 +167,14 @@ const DiscoverSliderEdit = ({
         return intl.formatMessage(sliderTitles.tmdbsearch);
       case DiscoverSliderType.MDBLIST:
         return intl.formatMessage(sliderTitles.mdblist);
+      case DiscoverSliderType.STREAMING_NEW_MOVIES:
+        return intl.formatMessage(sliderTitles.streamingNewMovies);
+      case DiscoverSliderType.STREAMING_NEW_SERIES:
+        return intl.formatMessage(sliderTitles.streamingNewSeries);
+      case DiscoverSliderType.STREAMING_POPULAR_MOVIES:
+        return intl.formatMessage(sliderTitles.streamingPopularMovies);
+      case DiscoverSliderType.STREAMING_POPULAR_SERIES:
+        return intl.formatMessage(sliderTitles.streamingPopularSeries);
       case DiscoverSliderType.TMDB_MOVIE_STREAMING_SERVICES:
         return intl.formatMessage(sliderTitles.tmdbmoviestreamingservices);
       case DiscoverSliderType.TMDB_TV_STREAMING_SERVICES:
@@ -249,6 +257,12 @@ const DiscoverSliderEdit = ({
           )}
           {slider.type === DiscoverSliderType.MDBLIST && (
             <Tag>{slider.data}</Tag>
+          )}
+          {(slider.type === DiscoverSliderType.STREAMING_NEW_MOVIES ||
+            slider.type === DiscoverSliderType.STREAMING_NEW_SERIES ||
+            slider.type === DiscoverSliderType.STREAMING_POPULAR_MOVIES ||
+            slider.type === DiscoverSliderType.STREAMING_POPULAR_SERIES) && (
+            <Tag>{slider.data?.split('|').join(', ')}</Tag>
           )}
         </div>
         <div className="flex items-center space-x-2">

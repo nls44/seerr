@@ -11,7 +11,8 @@ export type AvailableCacheIds =
   | 'plextv'
   | 'plexwatchlist'
   | 'tvdb'
-  | 'mdblist';
+  | 'mdblist'
+  | 'streamingavailability';
 
 const DEFAULT_TTL = 300;
 
@@ -50,6 +51,7 @@ const PLEX_WATCHLIST_MAX_KEYS = 500;
 const TVDB_MAX_KEYS = 500;
 
 const MDBLIST_MAX_KEYS = 256;
+const STREAMING_AVAILABILITY_MAX_KEYS = 256;
 
 export interface CacheStats {
   hits: number;
@@ -257,6 +259,14 @@ class CacheManager {
       stdTtl: 900,
       max: MDBLIST_MAX_KEYS,
     }),
+    streamingavailability: new Cache(
+      'streamingavailability',
+      'Streaming Availability API',
+      {
+        stdTtl: 900,
+        max: STREAMING_AVAILABILITY_MAX_KEYS,
+      }
+    ),
   };
 
   public getCache(id: AvailableCacheIds): Cache {

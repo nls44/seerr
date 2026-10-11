@@ -1,4 +1,5 @@
 import { parseMdblistListId } from '@server/api/mdblist';
+import { parseStreamingAvailabilityServices } from '@server/api/streamingavailability';
 import { DiscoverSliderType } from '@server/constants/discover';
 import { getRepository } from '@server/datasource';
 import DiscoverSlider from '@server/entity/DiscoverSlider';
@@ -13,6 +14,30 @@ const normalizeSliderData = (type: DiscoverSliderType, data: unknown) => {
       return parseMdblistListId(data);
     } catch {
       throw new Error('Invalid MDBList list URL or identifier.');
+    }
+  }
+
+  if (
+    type === DiscoverSliderType.STREAMING_NEW_MOVIES ||
+    type === DiscoverSliderType.STREAMING_NEW_SERIES
+  ) {
+    try {
+      return parseStreamingAvailabilityServices(data).join('|');
+    } catch {
+      throw new Error('Invalid Streaming Availability service selection.');
+    }
+  }
+
+  if (
+    type === DiscoverSliderType.STREAMING_POPULAR_MOVIES ||
+    type === DiscoverSliderType.STREAMING_POPULAR_SERIES
+  ) {
+    try {
+      return parseStreamingAvailabilityServices(data, { topOnly: true }).join(
+        '|'
+      );
+    } catch {
+      throw new Error('Invalid Streaming Availability service selection.');
     }
   }
 

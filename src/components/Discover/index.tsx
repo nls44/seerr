@@ -411,6 +411,54 @@ const Discover = () => {
               />
             );
             break;
+          case DiscoverSliderType.STREAMING_NEW_MOVIES:
+            sliderComponent = (
+              <MediaSlider
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url="/api/v1/discover/streaming-availability"
+                extraParams={`mode=new&mediaType=movie&services=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.STREAMING_NEW_SERIES:
+            sliderComponent = (
+              <MediaSlider
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url="/api/v1/discover/streaming-availability"
+                extraParams={`mode=new&mediaType=tv&services=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.STREAMING_POPULAR_MOVIES:
+            sliderComponent = (
+              <MediaSlider
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url="/api/v1/discover/streaming-availability"
+                extraParams={`mode=popular&mediaType=movie&services=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}`}
+              />
+            );
+            break;
+          case DiscoverSliderType.STREAMING_POPULAR_SERIES:
+            sliderComponent = (
+              <MediaSlider
+                sliderKey={`custom-slider-${slider.id}`}
+                title={slider.title ?? ''}
+                url="/api/v1/discover/streaming-availability"
+                extraParams={`mode=popular&mediaType=tv&services=${encodeURIExtraParams(
+                  slider.data ?? ''
+                )}`}
+              />
+            );
+            break;
         }
 
         if (isEditing) {

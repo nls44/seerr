@@ -69,6 +69,10 @@ export interface MdblistSettings {
   apiKey: string;
 }
 
+export interface StreamingAvailabilitySettings {
+  apiKey: string;
+}
+
 export interface DVRSettings {
   id: number;
   name: string;
@@ -388,6 +392,7 @@ export interface AllSettings {
   jellyfin: JellyfinSettings;
   tautulli: TautulliSettings;
   mdblist: MdblistSettings;
+  streamingAvailability: StreamingAvailabilitySettings;
   radarr: RadarrSettings[];
   sonarr: SonarrSettings[];
   public: PublicSettings;
@@ -463,6 +468,9 @@ class Settings {
       },
       tautulli: {},
       mdblist: {
+        apiKey: '',
+      },
+      streamingAvailability: {
         apiKey: '',
       },
       metadataSettings: {
@@ -689,6 +697,17 @@ class Settings {
 
   set mdblist(data: MdblistSettings) {
     this.data.mdblist = mergeSettings(this.data.mdblist, data);
+  }
+
+  get streamingAvailability(): StreamingAvailabilitySettings {
+    return this.data.streamingAvailability;
+  }
+
+  set streamingAvailability(data: StreamingAvailabilitySettings) {
+    this.data.streamingAvailability = mergeSettings(
+      this.data.streamingAvailability,
+      data
+    );
   }
 
   get metadataSettings(): MetadataSettings {

@@ -3938,6 +3938,49 @@ paths:
       responses:
         '204':
           description: MDBList API key removed
+  /settings/streaming-availability:
+    get:
+      summary: Get Streaming Availability configuration status
+      description: Returns whether a Streaming Availability API key is configured without returning the key.
+      tags:
+        - settings
+      responses:
+        '200':
+          description: Streaming Availability configuration status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasApiKey:
+                    type: boolean
+                required:
+                  - hasApiKey
+    post:
+      summary: Configure the Streaming Availability API key
+      tags:
+        - settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - apiKey
+              properties:
+                apiKey:
+                  type: string
+      responses:
+        '200':
+          description: Streaming Availability configuration status
+    delete:
+      summary: Remove the Streaming Availability API key
+      tags:
+        - settings
+      responses:
+        '204':
+          description: Streaming Availability API key removed
   /settings/discover/{sliderId}:
     put:
       summary: Update a single slider
@@ -6449,6 +6492,56 @@ paths:
       responses:
         '200':
           description: Ordered MDBList results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: number
+                  totalPages:
+                    type: number
+                  totalResults:
+                    type: number
+                  results:
+                    type: array
+                    items:
+                      anyOf:
+                        - $ref: '#/components/schemas/MovieResult'
+                        - $ref: '#/components/schemas/TvResult'
+  /discover/streaming-availability:
+    get:
+      summary: Get a Streaming Availability discovery page
+      description: Fetches new or officially popular titles from selected streaming services and hydrates their TMDB IDs.
+      tags:
+        - search
+      parameters:
+        - in: query
+          name: mode
+          required: true
+          schema:
+            type: string
+            enum:
+              - new
+              - popular
+        - in: query
+          name: mediaType
+          required: true
+          schema:
+            type: string
+            enum:
+              - movie
+              - tv
+        - in: query
+          name: services
+          required: true
+          description: Pipe-separated Streaming Availability service IDs.
+          schema:
+            type: string
+            example: netflix|prime|disney
+      responses:
+        '200':
+          description: Streaming Availability results
           content:
             application/json:
               schema:

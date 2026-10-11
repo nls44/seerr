@@ -46,6 +46,7 @@ import metadataRoutes from './metadata';
 import notificationRoutes from './notifications';
 import radarrRoutes from './radarr';
 import sonarrRoutes from './sonarr';
+import streamingAvailabilityRoutes from './streamingAvailability';
 
 const settingsRoutes = Router();
 
@@ -55,6 +56,7 @@ settingsRoutes.use('/sonarr', sonarrRoutes);
 settingsRoutes.use('/discover', discoverSettingRoutes);
 settingsRoutes.use('/metadatas', metadataRoutes);
 settingsRoutes.use('/mdblist', mdblistRoutes);
+settingsRoutes.use('/streaming-availability', streamingAvailabilityRoutes);
 
 const libraryUpdateSchema = z.object({
   enabled: z.boolean(),

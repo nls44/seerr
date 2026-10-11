@@ -89,6 +89,10 @@ export const sliderTitles = defineMessages('components.Discover', {
   tmdbmoviestreamingservices: 'TMDB Movie Streaming Services',
   tmdbtvstreamingservices: 'TMDB TV Streaming Services',
   mdblist: 'MDBList List',
+  streamingNewMovies: 'Streaming: New Movies',
+  streamingNewSeries: 'Streaming: New Series',
+  streamingPopularMovies: 'Streaming: Most Popular Movies',
+  streamingPopularSeries: 'Streaming: Most Popular Series',
 });
 
 export const QueryFilterOptions = z.object({
