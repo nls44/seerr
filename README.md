@@ -13,6 +13,13 @@
 
 **Seerr** is a free and open source software application for managing requests for your media library. It integrates with the media server of your choice: [Jellyfin](https://jellyfin.org), [Plex](https://plex.tv), and [Emby](https://emby.media/). In addition, it integrates with your existing services, such as **[Sonarr](https://sonarr.tv/)**, **[Radarr](https://radarr.video/)**.
 
+## What's Unique in This Fork
+
+This fork includes additional Discover features that are not part of the upstream Seerr feature set:
+
+- **MDBList Discover support** - Configure an MDBList API key and create Discover sliders from MDBList lists. Movie and series entries are resolved through TMDB and displayed in Seerr's normal request, watchlist, and blocklist flows.
+- **Streaming Availability Discover support** - Create region-aware sliders for new movies, new series, most popular movies, and most popular series using the Streaming Availability API. Sliders support selecting major streaming services, official service popularity rankings where available, and service logos on the title cards.
+
 ## Current Features
 
 - Full Jellyfin/Emby/Plex integration including authentication with user import & management.
