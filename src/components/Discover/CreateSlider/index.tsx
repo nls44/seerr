@@ -2,8 +2,10 @@ import Button from '@app/components/Common/Button';
 import Tooltip from '@app/components/Common/Tooltip';
 import { sliderTitles } from '@app/components/Discover/constants';
 import MediaSlider from '@app/components/MediaSlider';
+import RegionSelector from '@app/components/RegionSelector';
 import { WatchProviderSelector } from '@app/components/Selector';
 import { encodeURIExtraParams } from '@app/hooks/useDiscover';
+import useSettings from '@app/hooks/useSettings';
 import useToasts from '@app/hooks/useToasts';
 import defineMessages from '@app/utils/defineMessages';
 import type {
@@ -12,7 +14,10 @@ import type {
   TmdbKeywordSearchResponse,
 } from '@server/api/themoviedb/interfaces';
 import { DiscoverSliderType } from '@server/constants/discover';
-import { STREAMING_AVAILABILITY_SERVICES } from '@server/constants/streamingAvailability';
+import {
+  STREAMING_AVAILABILITY_SERVICES,
+  parseStreamingAvailabilitySliderData,
+} from '@server/constants/streamingAvailability';
 import type DiscoverSlider from '@server/entity/DiscoverSlider';
 import type { GenreSliderItem } from '@server/interfaces/api/discoverInterfaces';
 import type { Keyword, ProductionCompany } from '@server/models/common';
@@ -37,6 +42,7 @@ const messages = defineMessages('components.Discover.CreateSlider', {
     'Choose one or more streaming services for this slider.',
   streamingPopularServicesHelp:
     'Official rankings are available for the selected services.',
+  streamingCountry: 'Country',
   addsuccess: 'Created new slider and saved discover customization settings.',
   addfail: 'Failed to create new slider.',
   editsuccess: 'Edited slider and saved discover customization settings.',
@@ -73,11 +79,16 @@ const streamingAvailabilityPopularTypes = new Set([
 
 const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
   const intl = useIntl();
+  const settings = useSettings();
   const { addToast } = useToasts();
   const [resultCount, setResultCount] = useState(0);
   const [defaultDataValue, setDefaultDataValue] = useState<
     { label: string; value: number }[] | null
   >(null);
+  const defaultStreamingRegion =
+    settings.currentSettings.streamingRegion ||
+    settings.currentSettings.discoverRegion ||
+    'US';
 
   useEffect(() => {
     if (slider) {
@@ -318,28 +329,29 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
       type: DiscoverSliderType.STREAMING_NEW_MOVIES,
       title: intl.formatMessage(sliderTitles.streamingNewMovies),
       dataUrl: '/api/v1/discover/streaming-availability',
-      params: 'mode=new&mediaType=movie&services=$value',
+      params: 'mode=new&mediaType=movie&country=$countryValue&services=$value',
       titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
     },
     {
       type: DiscoverSliderType.STREAMING_NEW_SERIES,
       title: intl.formatMessage(sliderTitles.streamingNewSeries),
       dataUrl: '/api/v1/discover/streaming-availability',
-      params: 'mode=new&mediaType=tv&services=$value',
+      params: 'mode=new&mediaType=tv&country=$countryValue&services=$value',
       titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
     },
     {
       type: DiscoverSliderType.STREAMING_POPULAR_MOVIES,
       title: intl.formatMessage(sliderTitles.streamingPopularMovies),
       dataUrl: '/api/v1/discover/streaming-availability',
-      params: 'mode=popular&mediaType=movie&services=$value',
+      params:
+        'mode=popular&mediaType=movie&country=$countryValue&services=$value',
       titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
     },
     {
       type: DiscoverSliderType.STREAMING_POPULAR_SERIES,
       title: intl.formatMessage(sliderTitles.streamingPopularSeries),
       dataUrl: '/api/v1/discover/streaming-availability',
-      params: 'mode=popular&mediaType=tv&services=$value',
+      params: 'mode=popular&mediaType=tv&country=$countryValue&services=$value',
       titlePlaceholderText: intl.formatMessage(messages.slidernameplaceholder),
     },
   ];
@@ -524,15 +536,37 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
             const popular = streamingAvailabilityPopularTypes.has(
               activeOption.type
             );
+            const streamingSliderData = parseStreamingAvailabilitySliderData(
+              values.data
+            );
+            const selectedCountry =
+              streamingSliderData.country ?? defaultStreamingRegion;
             const selectedServices = new Set(
-              (values.data ?? '').split('|').filter(Boolean)
+              streamingSliderData.services.split('|').filter(Boolean)
             );
             const services = STREAMING_AVAILABILITY_SERVICES.filter(
               (service) => !popular || service.supportsTop
             );
 
             dataInput = (
-              <div className="space-y-3 rounded-md bg-gray-800 p-4">
+              <div className="space-y-4 rounded-md bg-gray-800 p-4">
+                <div className="space-y-1">
+                  <span className="block text-sm font-medium text-gray-300">
+                    {intl.formatMessage(messages.streamingCountry)}
+                  </span>
+                  <RegionSelector
+                    name="streamingCountry"
+                    value={selectedCountry}
+                    disableAll
+                    regionType="streaming"
+                    onChange={(_fieldName, region) => {
+                      setFieldValue(
+                        'data',
+                        `${region},${streamingSliderData.services}`
+                      );
+                    }}
+                  />
+                </div>
                 <p className="text-sm text-gray-300">
                   {intl.formatMessage(
                     popular
@@ -540,10 +574,10 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
                       : messages.streamingServicesHelp
                   )}
                 </p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                   {services.map((service) => (
                     <label
-                      className="checkbox-label"
+                      className="checkbox-label flex items-center gap-3"
                       htmlFor={`streaming-service-${service.id}`}
                       key={service.id}
                     >
@@ -558,13 +592,16 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
                           } else {
                             nextServices.add(service.id);
                           }
-                          setFieldValue(
-                            'data',
+                          const serviceData =
                             STREAMING_AVAILABILITY_SERVICES.filter((item) =>
                               nextServices.has(item.id)
                             )
                               .map((item) => item.id)
-                              .join('|')
+                              .join('|');
+
+                          setFieldValue(
+                            'data',
+                            `${selectedCountry},${serviceData}`
                           );
                         }}
                       />
@@ -649,22 +686,45 @@ const CreateSlider = ({ onCreate, slider }: CreateSliderProps) => {
                   )}
                   extraParams={
                     activeOption.type ===
-                      DiscoverSliderType.TMDB_MOVIE_STREAMING_SERVICES ||
+                      DiscoverSliderType.STREAMING_NEW_MOVIES ||
                     activeOption.type ===
-                      DiscoverSliderType.TMDB_TV_STREAMING_SERVICES
+                      DiscoverSliderType.STREAMING_NEW_SERIES ||
+                    activeOption.type ===
+                      DiscoverSliderType.STREAMING_POPULAR_MOVIES ||
+                    activeOption.type ===
+                      DiscoverSliderType.STREAMING_POPULAR_SERIES
                       ? activeOption.params
                           ?.replace(
-                            '$regionValue',
-                            encodeURIExtraParams(values?.data.split(',')[0])
+                            '$countryValue',
+                            encodeURIExtraParams(
+                              parseStreamingAvailabilitySliderData(values.data)
+                                .country ?? defaultStreamingRegion
+                            )
                           )
                           .replace(
-                            '$providersValue',
-                            encodeURIExtraParams(values?.data.split(',')[1])
+                            '$value',
+                            encodeURIExtraParams(
+                              parseStreamingAvailabilitySliderData(values.data)
+                                .services
+                            )
                           )
-                      : activeOption.params?.replace(
-                          '$value',
-                          encodeURIExtraParams(values.data)
-                        )
+                      : activeOption.type ===
+                            DiscoverSliderType.TMDB_MOVIE_STREAMING_SERVICES ||
+                          activeOption.type ===
+                            DiscoverSliderType.TMDB_TV_STREAMING_SERVICES
+                        ? activeOption.params
+                            ?.replace(
+                              '$regionValue',
+                              encodeURIExtraParams(values?.data.split(',')[0])
+                            )
+                            .replace(
+                              '$providersValue',
+                              encodeURIExtraParams(values?.data.split(',')[1])
+                            )
+                        : activeOption.params?.replace(
+                            '$value',
+                            encodeURIExtraParams(values.data)
+                          )
                   }
                   onNewTitles={updateResultCount}
                 />

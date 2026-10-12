@@ -1,6 +1,7 @@
 import { parseMdblistListId } from '@server/api/mdblist';
 import { parseStreamingAvailabilityServices } from '@server/api/streamingavailability';
 import { DiscoverSliderType } from '@server/constants/discover';
+import { parseStreamingAvailabilitySliderData } from '@server/constants/streamingAvailability';
 import { getRepository } from '@server/datasource';
 import DiscoverSlider from '@server/entity/DiscoverSlider';
 import logger from '@server/logger';
@@ -22,7 +23,15 @@ const normalizeSliderData = (type: DiscoverSliderType, data: unknown) => {
     type === DiscoverSliderType.STREAMING_NEW_SERIES
   ) {
     try {
-      return parseStreamingAvailabilityServices(data).join('|');
+      const { country, services } = parseStreamingAvailabilitySliderData(data);
+      const normalizedServices =
+        parseStreamingAvailabilityServices(services).join('|');
+
+      if (country && !/^[A-Z]{2}$/.test(country)) {
+        throw new Error('Invalid Streaming Availability country.');
+      }
+
+      return country ? `${country},${normalizedServices}` : normalizedServices;
     } catch {
       throw new Error('Invalid Streaming Availability service selection.');
     }
@@ -33,9 +42,16 @@ const normalizeSliderData = (type: DiscoverSliderType, data: unknown) => {
     type === DiscoverSliderType.STREAMING_POPULAR_SERIES
   ) {
     try {
-      return parseStreamingAvailabilityServices(data, { topOnly: true }).join(
-        '|'
-      );
+      const { country, services } = parseStreamingAvailabilitySliderData(data);
+      const normalizedServices = parseStreamingAvailabilityServices(services, {
+        topOnly: true,
+      }).join('|');
+
+      if (country && !/^[A-Z]{2}$/.test(country)) {
+        throw new Error('Invalid Streaming Availability country.');
+      }
+
+      return country ? `${country},${normalizedServices}` : normalizedServices;
     } catch {
       throw new Error('Invalid Streaming Availability service selection.');
     }

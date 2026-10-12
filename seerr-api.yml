@@ -6539,6 +6539,19 @@ paths:
           schema:
             type: string
             example: netflix|prime|disney
+        - in: query
+          name: country
+          description: Two-letter country code used for the Streaming Availability catalog.
+          schema:
+            type: string
+            example: US
+        - in: query
+          name: page
+          description: Page number. Streaming Availability results currently fit on one page.
+          schema:
+            type: number
+            example: 1
+            default: 1
       responses:
         '200':
           description: Streaming Availability results

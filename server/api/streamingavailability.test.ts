@@ -1,6 +1,7 @@
 import StreamingAvailabilityAPI, {
   parseStreamingAvailabilityServices,
 } from '@server/api/streamingavailability';
+import { parseStreamingAvailabilitySliderData } from '@server/constants/streamingAvailability';
 import cacheManager from '@server/lib/cache';
 import type {
   AxiosAdapter,
@@ -43,6 +44,21 @@ describe('parseStreamingAvailabilityServices', () => {
     assert.throws(() =>
       parseStreamingAvailabilityServices('paramount', { topOnly: true })
     );
+  });
+});
+
+describe('parseStreamingAvailabilitySliderData', () => {
+  it('parses country-aware slider data', () => {
+    assert.deepEqual(parseStreamingAvailabilitySliderData('BE,netflix|prime'), {
+      country: 'BE',
+      services: 'netflix|prime',
+    });
+  });
+
+  it('keeps legacy service-only slider data compatible', () => {
+    assert.deepEqual(parseStreamingAvailabilitySliderData('netflix|prime'), {
+      services: 'netflix|prime',
+    });
   });
 });
 
@@ -114,6 +130,27 @@ describe('StreamingAvailabilityAPI', () => {
     assert.ok(
       requests.every((request) => request.includes('show_type=series'))
     );
+  });
+
+  it('caches repeated requests with the same parameters', async () => {
+    const api = new TestStreamingAvailabilityAPI('test-key');
+    let requestCount = 0;
+    api.installAdapter(async (config) => {
+      requestCount += 1;
+      return axiosResponse(config, [{ showType: 'series', tmdbId: 'tv/1399' }]);
+    });
+
+    const options = {
+      country: 'be',
+      services: ['netflix'] as ['netflix'],
+      showType: 'series' as const,
+      language: 'en',
+    };
+
+    await api.getTopShows(options);
+    await api.getTopShows(options);
+
+    assert.equal(requestCount, 1);
   });
 
   it('maps regional service metadata to logo badges', async () => {

@@ -197,7 +197,7 @@ class StreamingAvailabilityAPI extends ExternalAPI {
 
             return parseReference(data.shows?.[change.showId], service);
           })
-      ).slice(0, 20);
+      );
     } catch (error) {
       throw this.toApiError(error);
     }
@@ -239,7 +239,7 @@ class StreamingAvailabilityAPI extends ExternalAPI {
         serviceResults.flatMap(({ service, shows }) =>
           shows.map((show) => parseReference(show, [service]))
         )
-      ).slice(0, 20);
+      );
     } catch (error) {
       throw this.toApiError(error);
     }

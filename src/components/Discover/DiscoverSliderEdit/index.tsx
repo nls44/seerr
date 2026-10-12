@@ -20,6 +20,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/solid';
 import { DiscoverSliderType } from '@server/constants/discover';
+import { parseStreamingAvailabilitySliderData } from '@server/constants/streamingAvailability';
 import type DiscoverSlider from '@server/entity/DiscoverSlider';
 import axios from 'axios';
 import { useRef, useState } from 'react';
@@ -262,7 +263,15 @@ const DiscoverSliderEdit = ({
             slider.type === DiscoverSliderType.STREAMING_NEW_SERIES ||
             slider.type === DiscoverSliderType.STREAMING_POPULAR_MOVIES ||
             slider.type === DiscoverSliderType.STREAMING_POPULAR_SERIES) && (
-            <Tag>{slider.data?.split('|').join(', ')}</Tag>
+            <Tag>
+              {(() => {
+                const data = parseStreamingAvailabilitySliderData(slider.data);
+                return [data.country, data.services]
+                  .filter(Boolean)
+                  .join(': ')
+                  .replaceAll('|', ', ');
+              })()}
+            </Tag>
           )}
         </div>
         <div className="flex items-center space-x-2">

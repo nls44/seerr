@@ -24,11 +24,7 @@ import type {
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { mapProductionCompany } from '@server/models/Movie';
-import type {
-  MovieResult,
-  StreamingServiceBadge,
-  TvResult,
-} from '@server/models/Search';
+import type { MovieResult, TvResult } from '@server/models/Search';
 import {
   mapCollectionResult,
   mapMovieDetailsToResult,
@@ -1177,7 +1173,17 @@ discoverRoutes.get('/streaming-availability', async (req, res, next) => {
     return next({ status: 400, message: e.message });
   }
 
+  const requestedCountry =
+    typeof req.query.country === 'string'
+      ? req.query.country.trim().toLowerCase()
+      : undefined;
+
+  if (requestedCountry && !/^[a-z]{2}$/.test(requestedCountry)) {
+    return next({ status: 400, message: 'Invalid streaming country.' });
+  }
+
   const country = (
+    requestedCountry ||
     req.user?.settings?.streamingRegion ||
     settings.main.streamingRegion ||
     settings.main.discoverRegion ||
@@ -1201,22 +1207,6 @@ discoverRoutes.get('/streaming-availability', async (req, res, next) => {
             showType,
             language,
           });
-    let serviceLogos: StreamingServiceBadge[] = [];
-    try {
-      serviceLogos = await streamingAvailability.getServiceLogos({
-        country: country === 'all' ? 'us' : country,
-        services,
-        language,
-      });
-    } catch (error) {
-      logger.debug('Unable to retrieve Streaming Availability service logos', {
-        label: 'API',
-        errorMessage: error.message,
-      });
-    }
-    const serviceLogosById = new Map(
-      serviceLogos.map((service) => [service.id, service])
-    );
     const tmdb = createTmdbWithRegionLanguage(req.user);
 
     const hydrated = await Promise.all(
@@ -1281,12 +1271,6 @@ discoverRoutes.get('/streaming-availability', async (req, res, next) => {
                     med.mediaType === MediaType.MOVIE
                 )
               ),
-              streamingServices: item.streamingServiceIds
-                .map((serviceId) => serviceLogosById.get(serviceId))
-                .filter(
-                  (service): service is StreamingServiceBadge =>
-                    service !== undefined
-                ),
             },
           ];
         }
@@ -1301,12 +1285,6 @@ discoverRoutes.get('/streaming-availability', async (req, res, next) => {
                     med.tmdbId === item.tmdbId && med.mediaType === MediaType.TV
                 )
               ),
-              streamingServices: item.streamingServiceIds
-                .map((serviceId) => serviceLogosById.get(serviceId))
-                .filter(
-                  (service): service is StreamingServiceBadge =>
-                    service !== undefined
-                ),
             },
           ];
         }

@@ -1,3 +1,4 @@
+import ListView from '@app/components/Common/ListView';
 import ShowMoreCard from '@app/components/MediaSlider/ShowMoreCard';
 import PersonCard from '@app/components/PersonCard';
 import Slider from '@app/components/Slider';
@@ -30,6 +31,8 @@ interface MediaSliderProps {
   sliderKey: string;
   hideWhenEmpty?: boolean;
   extraParams?: string;
+  layout?: 'slider' | 'grid';
+  showAllResults?: boolean;
   onNewTitles?: (titleCount: number) => void;
 }
 
@@ -40,25 +43,28 @@ const MediaSlider = ({
   extraParams,
   sliderKey,
   hideWhenEmpty = false,
+  layout = 'slider',
+  showAllResults = false,
   onNewTitles,
 }: MediaSliderProps) => {
   const settings = useSettings();
   const { hasPermission } = useUser();
-  const { data, error, setSize, size } = useSWRInfinite<MixedResult>(
-    (pageIndex: number, previousPageData: MixedResult | null) => {
-      if (previousPageData && pageIndex + 1 > previousPageData.totalPages) {
-        return null;
-      }
+  const { data, error, setSize, size, isValidating } =
+    useSWRInfinite<MixedResult>(
+      (pageIndex: number, previousPageData: MixedResult | null) => {
+        if (previousPageData && pageIndex + 1 > previousPageData.totalPages) {
+          return null;
+        }
 
-      return `${url}?page=${pageIndex + 1}${
-        extraParams ? `&${extraParams}` : ''
-      }`;
-    },
-    {
-      initialSize: 2,
-      revalidateFirstPage: false,
-    }
-  );
+        return `${url}?page=${pageIndex + 1}${
+          extraParams ? `&${extraParams}` : ''
+        }`;
+      },
+      {
+        initialSize: 2,
+        revalidateFirstPage: false,
+      }
+    );
 
   let titles = (data ?? []).reduce(
     (a, v) => [...a, ...v.results],
@@ -112,13 +118,24 @@ const MediaSlider = ({
     return null;
   }
 
+  const isLoadingInitialData = !data && !error;
+  const isLoadingMore =
+    isLoadingInitialData ||
+    (size > 0 &&
+      !!data &&
+      typeof data[size - 1] === 'undefined' &&
+      isValidating);
+  const isReachingEnd =
+    !!data &&
+    !!data[data.length - 1] &&
+    data.length >= data[data.length - 1].totalPages;
+
   const blocklistVisibility = hasPermission(
     [Permission.MANAGE_BLOCKLIST, Permission.VIEW_BLOCKLIST],
     { type: 'or' }
   );
 
-  const finalTitles = titles
-    .slice(0, 20)
+  const finalTitles = (showAllResults ? titles : titles.slice(0, 20))
     .filter((title) => {
       if (!blocklistVisibility)
         return (
@@ -143,7 +160,6 @@ const MediaSlider = ({
               year={title.releaseDate}
               mediaType={title.mediaType}
               inProgress={(title.mediaInfo?.downloadStatus ?? []).length > 0}
-              streamingServices={title.streamingServices}
             />
           );
         case 'tv':
@@ -160,7 +176,6 @@ const MediaSlider = ({
               year={title.firstAirDate}
               mediaType={title.mediaType}
               inProgress={(title.mediaInfo?.downloadStatus ?? []).length > 0}
-              streamingServices={title.streamingServices}
             />
           );
         case 'person':
@@ -174,7 +189,7 @@ const MediaSlider = ({
       }
     });
 
-  if (linkUrl && titles.length > 20) {
+  if (linkUrl && !showAllResults && titles.length > 20) {
     finalTitles.push(
       <ShowMoreCard
         url={linkUrl}
@@ -201,12 +216,24 @@ const MediaSlider = ({
           </div>
         )}
       </div>
-      <Slider
-        sliderKey={sliderKey}
-        isLoading={!data && !error}
-        isEmpty={false}
-        items={finalTitles}
-      />
+      {layout === 'grid' ? (
+        <ListView
+          items={titles}
+          isEmpty={!isLoadingInitialData && titles.length === 0}
+          isLoading={
+            isLoadingInitialData || (isLoadingMore && titles.length > 0)
+          }
+          isReachingEnd={isReachingEnd}
+          onScrollBottom={() => setSize(size + 1)}
+        />
+      ) : (
+        <Slider
+          sliderKey={sliderKey}
+          isLoading={isLoadingInitialData}
+          isEmpty={false}
+          items={finalTitles}
+        />
+      )}
     </>
   );
 };

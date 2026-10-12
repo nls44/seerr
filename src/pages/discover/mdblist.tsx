@@ -19,6 +19,8 @@ const MdblistDiscoverPage: NextPage = () => {
           sliderKey={`mdblist-${list}`}
           title="MDBList"
           url="/api/v1/discover/mdblist"
+          layout="grid"
+          showAllResults
           extraParams={`list=${encodeURIExtraParams(list)}`}
         />
       )}

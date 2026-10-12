@@ -28,6 +28,7 @@ import {
   PlusIcon,
 } from '@heroicons/react/24/solid';
 import { DiscoverSliderType } from '@server/constants/discover';
+import { parseStreamingAvailabilitySliderData } from '@server/constants/streamingAvailability';
 import type DiscoverSlider from '@server/entity/DiscoverSlider';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
@@ -51,6 +52,18 @@ const messages = defineMessages('components.Discover', {
   stopediting: 'Stop Editing',
   createnewslider: 'Create New Slider',
 });
+
+const getStreamingAvailabilityQuery = (
+  sliderData: string | undefined,
+  mode: 'new' | 'popular',
+  mediaType: 'movie' | 'tv'
+): string => {
+  const data = parseStreamingAvailabilitySliderData(sliderData);
+
+  return `mode=${mode}&mediaType=${mediaType}&${
+    data.country ? `country=${encodeURIExtraParams(data.country)}&` : ''
+  }services=${encodeURIExtraParams(data.services)}`;
+};
 
 const Discover = () => {
   const intl = useIntl();
@@ -417,8 +430,15 @@ const Discover = () => {
                 sliderKey={`custom-slider-${slider.id}`}
                 title={slider.title ?? ''}
                 url="/api/v1/discover/streaming-availability"
-                extraParams={`mode=new&mediaType=movie&services=${encodeURIExtraParams(
-                  slider.data ?? ''
+                extraParams={getStreamingAvailabilityQuery(
+                  slider.data,
+                  'new',
+                  'movie'
+                )}
+                linkUrl={`/discover/streaming-availability?${getStreamingAvailabilityQuery(
+                  slider.data,
+                  'new',
+                  'movie'
                 )}`}
               />
             );
@@ -429,8 +449,15 @@ const Discover = () => {
                 sliderKey={`custom-slider-${slider.id}`}
                 title={slider.title ?? ''}
                 url="/api/v1/discover/streaming-availability"
-                extraParams={`mode=new&mediaType=tv&services=${encodeURIExtraParams(
-                  slider.data ?? ''
+                extraParams={getStreamingAvailabilityQuery(
+                  slider.data,
+                  'new',
+                  'tv'
+                )}
+                linkUrl={`/discover/streaming-availability?${getStreamingAvailabilityQuery(
+                  slider.data,
+                  'new',
+                  'tv'
                 )}`}
               />
             );
@@ -441,8 +468,15 @@ const Discover = () => {
                 sliderKey={`custom-slider-${slider.id}`}
                 title={slider.title ?? ''}
                 url="/api/v1/discover/streaming-availability"
-                extraParams={`mode=popular&mediaType=movie&services=${encodeURIExtraParams(
-                  slider.data ?? ''
+                extraParams={getStreamingAvailabilityQuery(
+                  slider.data,
+                  'popular',
+                  'movie'
+                )}
+                linkUrl={`/discover/streaming-availability?${getStreamingAvailabilityQuery(
+                  slider.data,
+                  'popular',
+                  'movie'
                 )}`}
               />
             );
@@ -453,8 +487,15 @@ const Discover = () => {
                 sliderKey={`custom-slider-${slider.id}`}
                 title={slider.title ?? ''}
                 url="/api/v1/discover/streaming-availability"
-                extraParams={`mode=popular&mediaType=tv&services=${encodeURIExtraParams(
-                  slider.data ?? ''
+                extraParams={getStreamingAvailabilityQuery(
+                  slider.data,
+                  'popular',
+                  'tv'
+                )}
+                linkUrl={`/discover/streaming-availability?${getStreamingAvailabilityQuery(
+                  slider.data,
+                  'popular',
+                  'tv'
                 )}`}
               />
             );

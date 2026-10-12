@@ -23,3 +23,26 @@ export const STREAMING_AVAILABILITY_TOP_SERVICE_IDS =
   STREAMING_AVAILABILITY_SERVICES.filter((service) => service.supportsTop).map(
     (service) => service.id
   );
+
+export const parseStreamingAvailabilitySliderData = (
+  value: unknown
+): {
+  country?: string;
+  services: string;
+} => {
+  if (typeof value !== 'string') {
+    return { services: '' };
+  }
+
+  const separator = value.indexOf(',');
+  if (separator === -1) {
+    return { services: value };
+  }
+
+  const country = value.slice(0, separator).trim().toUpperCase();
+
+  return {
+    country: country || undefined,
+    services: value.slice(separator + 1),
+  };
+};
